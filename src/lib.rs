@@ -1,70 +1,68 @@
-/*!
-Ini streaming parser
-====================
-
-Simple, straight forward, super fast, `no_std` compatible INI parser.
-
-Examples
---------
-
-```
-use ini_core as ini;
-
-let document = "\
-[SECTION]
-;this is a comment
-Key=Value";
-
-let elements = [
-	ini::Item::Section("SECTION"),
-	ini::Item::Comment("this is a comment"),
-	ini::Item::Property("Key", "Value"),
-];
-
-for (line, item) in ini::Parser::new(document).enumerate() {
-	assert_eq!(item, elements[line]);
-}
-```
-
-The parser is very much line-based, it will continue no matter what and return nonsense as an item:
-
-```
-use ini_core as ini;
-
-let document = "\
-[SECTION
-nonsense";
-
-let elements = [
-	ini::Item::Error("[SECTION"),
-	ini::Item::Action("nonsense"),
-];
-
-for (line, item) in ini::Parser::new(document).enumerate() {
-	assert_eq!(item, elements[line]);
-}
-```
-
-Lines starting with `[` but contain either no closing `]` or a closing `]` not followed by a newline are returned as [`Item::Error`].
-Lines missing a `=` are returned as [`Item::Action`]. See below for more details.
-
-Format
-------
-
-INI is not a well specified format, this parser tries to make as little assumptions as possible but it does make decisions.
-
-* Newline is either `"\r\n"`, `"\n"` or `"\r"`. It can be mixed in a single document but this is not recommended.
-* Section header is `"[" section "]" newline`. `section` can be anything except contain newlines.
-* Property is `key "=" value newline`. `key` and `value` can be anything except contain newlines.
-* Comment is `";" comment newline` and Blank is just `newline`. The comment character can be customized.
-
-Note that padding whitespace is not trimmed by default:
-Section `[ SECTION ]`'s name is `<space>SECTION<space>`.
-Property `KEY = VALUE` has key `KEY<space>` and value `<space>VALUE`.
-Comment `; comment`'s comment is `<space>comment`.
-
-No further processing of the input is done, eg. if escape sequences are necessary they must be processed by the user.
-*/
+//! Ini streaming parser
+//! ====================
+//!
+//! Simple, straight forward, super fast, `no_std` compatible INI parser.
+//!
+//! Examples
+//! --------
+//!
+//! ```
+//! use ini_core as ini;
+//!
+//! let document = "\
+//! [SECTION]
+//! ;this is a comment
+//! Key=Value";
+//!
+//! let elements = [
+//! 	ini::Item::Section("SECTION"),
+//! 	ini::Item::Comment("this is a comment"),
+//! 	ini::Item::Property("Key", "Value"),
+//! ];
+//!
+//! for (line, item) in ini::Parser::new(document).enumerate() {
+//! 	assert_eq!(item, elements[line]);
+//! }
+//! ```
+//!
+//! The parser is very much line-based, it will continue no matter what and return nonsense as an item:
+//!
+//! ```
+//! use ini_core as ini;
+//!
+//! let document = "\
+//! [SECTION
+//! nonsense";
+//!
+//! let elements = [
+//! 	ini::Item::Error("[SECTION"),
+//! 	ini::Item::Action("nonsense"),
+//! ];
+//!
+//! for (line, item) in ini::Parser::new(document).enumerate() {
+//! 	assert_eq!(item, elements[line]);
+//! }
+//! ```
+//!
+//! Lines starting with `[` but contain either no closing `]` or a closing `]` not followed by a newline are returned as [`Item::Error`].
+//! Lines missing a `=` are returned as [`Item::Action`]. See below for more details.
+//!
+//! Format
+//! ------
+//!
+//! INI is not a well specified format, this parser tries to make as little assumptions as possible but it does make decisions.
+//!
+//! * Newline is either `"\r\n"`, `"\n"` or `"\r"`. It can be mixed in a single document but this is not recommended.
+//! * Section header is `"[" section "]" newline`. `section` can be anything except contain newlines.
+//! * Property is `key "=" value newline`. `key` and `value` can be anything except contain newlines.
+//! * Comment is `";" comment newline` and Blank is just `newline`. The comment character can be customized.
+//!
+//! Note that padding whitespace is not trimmed by default:
+//! Section `[ SECTION ]`'s name is `<space>SECTION<space>`.
+//! Property `KEY = VALUE` has key `KEY<space>` and value `<space>VALUE`.
+//! Comment `; comment`'s comment is `<space>comment`.
+//!
+//! No further processing of the input is done, eg. if escape sequences are necessary they must be processed by the user.
 
 #![cfg_attr(not(test), no_std)]
 
@@ -217,7 +215,7 @@ impl<'a> Iterator for Parser<'a> {
 	fn next(&mut self) -> Option<Item<'a>> {
 		let mut s = self.state;
 
-		match s.first().cloned() {
+		match s.first() {
 			// Terminal case
 			None => None,
 			// Blank
@@ -226,7 +224,7 @@ impl<'a> Iterator for Parser<'a> {
 				Some(Item::Blank)
 			},
 			// Comment
-			Some(chr) if chr == self.comment_char => {
+			Some(&chr) if chr == self.comment_char => {
 				s = &s[1..];
 				let i = parse::find_nl(s);
 				unsafe_assert!(i <= s.len());
@@ -298,6 +296,3 @@ impl<'a> Parser<'a> {
 		self.state = s;
 	}
 }
-
-#[cfg(test)]
-mod tests;
